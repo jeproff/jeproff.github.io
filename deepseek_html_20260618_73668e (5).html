@@ -1,0 +1,2263 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>С днем рождения!</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet" />
+
+    <style>
+        /* ===== RESET & BASE ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #07050e;
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            user-select: none;
+            cursor: default;
+        }
+
+        /* ===== CANVAS (частицы + волны) ===== */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* ============================================================ */
+        /* ===== ПРОГРЕСС-БАР СВЕРХУ ===== */
+        /* ============================================================ */
+        #progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 100;
+            padding: 12px 20px 8px;
+            background: rgba(5, 3, 10, 0.6);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        #progress-bar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .progress-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            flex-shrink: 0;
+            opacity: 0.25;
+            transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+            position: relative;
+            padding: 0 4px;
+        }
+        .progress-step .step-icon {
+            font-size: 1.1rem;
+            transition: 0.4s;
+            filter: grayscale(0.8);
+            line-height: 1.4;
+        }
+        .progress-step .step-line {
+            width: 16px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 2px;
+            transition: 0.5s;
+            margin: 0 2px;
+        }
+        .progress-step .step-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            transition: 0.5s;
+        }
+        .progress-step .step-label {
+            font-size: 0.45rem;
+            font-weight: 300;
+            color: rgba(255, 255, 255, 0.2);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            transition: 0.4s;
+        }
+
+        .progress-step.active {
+            opacity: 1;
+        }
+        .progress-step.active .step-icon {
+            filter: grayscale(0);
+            transform: scale(1.15);
+            text-shadow: 0 0 20px rgba(255, 180, 200, 0.2);
+        }
+        .progress-step.active .step-dot {
+            background: #ffb8c8;
+            box-shadow: 0 0 16px rgba(255, 180, 200, 0.3);
+        }
+        .progress-step.active .step-label {
+            color: rgba(255, 200, 220, 0.7);
+        }
+
+        .progress-step.done {
+            opacity: 0.7;
+        }
+        .progress-step.done .step-icon {
+            filter: grayscale(0.3);
+        }
+        .progress-step.done .step-dot {
+            background: rgba(255, 180, 200, 0.3);
+        }
+        .progress-step.done .step-label {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .progress-connector {
+            flex-shrink: 0;
+            width: 18px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 2px;
+            transition: 0.5s;
+            margin: 0 2px;
+            align-self: center;
+            margin-bottom: 6px;
+        }
+        .progress-connector.done {
+            background: rgba(255, 180, 200, 0.2);
+        }
+
+        /* ===== GLOBAL GLOW ===== */
+        .glow {
+            text-shadow: 0 0 40px rgba(255, 180, 200, 0.2), 0 0 80px rgba(255, 100, 150, 0.1);
+        }
+
+        /* ===== SCREENS ===== */
+        .screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            padding-top: 80px;
+            opacity: 0;
+            transition: opacity 1.2s cubic-bezier(0.23, 1, 0.32, 1);
+            z-index: 1;
+            overflow: hidden;
+        }
+        .screen.active {
+            display: flex;
+            opacity: 1;
+            z-index: 10;
+        }
+        .screen.fade-out {
+            opacity: 0;
+            transition: opacity 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        /* ===== TYPOGRAPHY ===== */
+        .title {
+            font-family: 'Caveat', cursive;
+            font-size: clamp(3rem, 10vw, 5.6rem);
+            font-weight: 700;
+            text-align: center;
+            line-height: 1.15;
+            letter-spacing: 0.02em;
+        }
+        .sub {
+            font-size: clamp(1rem, 2.5vw, 1.4rem);
+            font-weight: 300;
+            letter-spacing: 0.04em;
+            text-align: center;
+            max-width: 680px;
+            opacity: 0.85;
+            line-height: 1.6;
+            margin-top: 12px;
+        }
+        .text-rose {
+            color: #ffb8c8;
+        }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            margin-top: 32px;
+            padding: 16px 52px;
+            border: none;
+            border-radius: 60px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(12px);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+            letter-spacing: 0.04em;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+            font-family: 'Inter', sans-serif;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at center, rgba(255, 180, 200, 0.15), transparent 70%);
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        .btn:hover::before {
+            opacity: 1;
+        }
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.04);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 12px 60px rgba(255, 180, 200, 0.15);
+        }
+        .btn:active {
+            transform: scale(0.95);
+        }
+        .btn-primary {
+            background: rgba(255, 180, 200, 0.12);
+            border-color: rgba(255, 180, 200, 0.2);
+        }
+        .btn-primary:hover {
+            background: rgba(255, 180, 200, 0.22);
+            border-color: rgba(255, 180, 200, 0.35);
+        }
+
+        /* ============================================================ */
+        /* 1. СТЕКЛО                                                     */
+        /* ============================================================ */
+        #screen-glass .glass-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background:
+                radial-gradient(ellipse at 30% 40%, rgba(60, 40, 80, 0.4), transparent 60%),
+                radial-gradient(ellipse at 80% 70%, rgba(30, 20, 50, 0.5), transparent 50%),
+                radial-gradient(ellipse at 50% 50%, #1a1228, #05030a);
+        }
+        #screen-glass .glass-bg::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(45deg, transparent 55%, rgba(255, 255, 255, 0.02) 55%, transparent 57%),
+                linear-gradient(-30deg, transparent 65%, rgba(255, 255, 255, 0.02) 65%, transparent 67%),
+                radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.04) 0%, transparent 30%),
+                radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.04) 0%, transparent 25%),
+                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 255, 255, 0.005) 2px, rgba(255, 255, 255, 0.005) 4px);
+            pointer-events: none;
+            opacity: 0.3;
+        }
+        #screen-glass .glass-card {
+            position: relative;
+            z-index: 5;
+            text-align: center;
+            max-width: 480px;
+            background: rgba(8, 6, 18, 0.7);
+            backdrop-filter: blur(24px);
+            padding: 52px 44px;
+            border-radius: 36px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 40px 100px rgba(0, 0, 0, 0.8), inset 0 0 80px rgba(255, 180, 200, 0.02);
+            transform: rotateX(2deg);
+            transition: transform 0.6s;
+        }
+        #screen-glass .glass-card:hover {
+            transform: rotateX(0deg) scale(1.01);
+        }
+        #screen-glass .envelope {
+            font-size: 5rem;
+            display: inline-block;
+            animation: float-env 3s ease-in-out infinite;
+            filter: drop-shadow(0 20px 40px rgba(255, 180, 200, 0.15));
+        }
+        @keyframes float-env {
+            0%,
+            100% {
+                transform: translateY(0) rotate(-3deg);
+            }
+            50% {
+                transform: translateY(-12px) rotate(3deg);
+            }
+        }
+        #screen-glass .wipe-area {
+            position: relative;
+            margin: 24px auto 12px;
+            width: 220px;
+            height: 64px;
+            border-radius: 60px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.25);
+            cursor: pointer;
+            transition: 0.4s;
+            overflow: hidden;
+            touch-action: none;
+            backdrop-filter: blur(4px);
+        }
+        #screen-glass .wipe-area:hover {
+            border-color: rgba(255, 200, 220, 0.15);
+        }
+        #screen-glass .wipe-area .wipe-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, rgba(255, 180, 200, 0.1), rgba(255, 180, 200, 0.2));
+            border-radius: 60px;
+            transition: width 0.08s linear;
+            pointer-events: none;
+            box-shadow: 0 0 30px rgba(255, 180, 200, 0.05);
+        }
+        #screen-glass .wipe-area .wipe-label {
+            position: relative;
+            z-index: 2;
+            pointer-events: none;
+            letter-spacing: 0.06em;
+        }
+        #screen-glass .wipe-area.done .wipe-label {
+            color: rgba(255, 200, 220, 0.7);
+        }
+        #screen-glass .wipe-status {
+            font-size: 0.8rem;
+            color: rgba(255, 200, 220, 0.2);
+            margin-top: 14px;
+            min-height: 20px;
+            letter-spacing: 0.1em;
+            font-weight: 300;
+        }
+
+        /* ============================================================ */
+        /* 2. КОНВЕРТ                                                    */
+        /* ============================================================ */
+        #screen-letter .letter-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background:
+                radial-gradient(circle at 20% 30%, rgba(180, 120, 200, 0.2), transparent 40%),
+                radial-gradient(circle at 80% 70%, rgba(255, 180, 200, 0.15), transparent 45%),
+                radial-gradient(circle at 50% 50%, #1a1228, #06040e);
+        }
+        #screen-letter .letter-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            max-width: 580px;
+            animation: letterIn 1.4s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+            transform-origin: center;
+        }
+        @keyframes letterIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.9) rotate(-6deg) translateY(40px);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) rotate(0) translateY(0);
+            }
+        }
+        #screen-letter .letter-seal {
+            font-size: 2.8rem;
+            display: inline-block;
+            animation: pulse-seal 2s ease-in-out infinite;
+        }
+        @keyframes pulse-seal {
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 0.6;
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 1;
+            }
+        }
+
+        /* ============================================================ */
+        /* 3. ЧАСЫ                                                        */
+        /* ============================================================ */
+        #screen-time .time-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background:
+                radial-gradient(circle at 30% 40%, rgba(80, 60, 120, 0.25), transparent 50%),
+                radial-gradient(circle at 70% 60%, rgba(40, 30, 80, 0.2), transparent 45%),
+                radial-gradient(ellipse at 50% 60%, #11101f, #040308);
+        }
+        #screen-time .time-bg::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80vmin;
+            height: 80vmin;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.02);
+            box-shadow: 0 0 80px rgba(255, 180, 200, 0.03);
+            pointer-events: none;
+        }
+        #screen-time .time-ring {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+        }
+        #screen-time .clock {
+            font-size: clamp(3.6rem, 12vw, 6.4rem);
+            font-weight: 200;
+            letter-spacing: 0.08em;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 16px 44px;
+            border-radius: 80px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            font-variant-numeric: tabular-nums;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 0 60px rgba(255, 180, 200, 0.04);
+            display: inline-block;
+            font-feature-settings: "tnum";
+        }
+
+        /* ============================================================ */
+        /* 4. КОЛЛЕДЖ                                                     */
+        /* ============================================================ */
+        #screen-college .college-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background:
+                radial-gradient(ellipse at 30% 30%, rgba(100, 70, 90, 0.3), transparent 55%),
+                radial-gradient(ellipse at 70% 70%, rgba(60, 40, 70, 0.25), transparent 50%),
+                radial-gradient(ellipse at 50% 50%, #2d1f2e, #0b0810);
+        }
+        #screen-college .college-bg::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(255, 255, 255, 0.01) 3px, rgba(255, 255, 255, 0.01) 4px);
+            opacity: 0.2;
+            pointer-events: none;
+        }
+        #screen-college .college-vignette {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.5) 100%);
+            pointer-events: none;
+        }
+        #screen-college .content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            max-width: 620px;
+            padding: 20px;
+            border-left: 2px solid rgba(255, 180, 200, 0.1);
+            padding-left: 32px;
+            animation: slideInLeft 1s ease;
+        }
+        @keyframes slideInLeft {
+            0% {
+                opacity: 0;
+                transform: translateX(-40px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* ============================================================ */
+        /* 5. ТИШИНА                                                      */
+        /* ============================================================ */
+        #screen-silence .silence-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background:
+                radial-gradient(circle at 40% 50%, rgba(60, 50, 80, 0.15), transparent 50%),
+                radial-gradient(circle at 60% 30%, rgba(40, 30, 60, 0.1), transparent 40%),
+                radial-gradient(ellipse at 50% 50%, #0f0d1a, #040308);
+        }
+        #screen-silence .silence-pulse {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            animation: breathe 3s ease-in-out infinite;
+        }
+        @keyframes breathe {
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 0.8;
+            }
+            50% {
+                transform: scale(1.03);
+                opacity: 1;
+            }
+        }
+
+        /* ============================================================ */
+        /* 6. ТЕЛЕГРАМ                                                    */
+        /* ============================================================ */
+        #screen-telegram .tg-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background:
+                radial-gradient(circle at 30% 40%, rgba(40, 60, 120, 0.2), transparent 50%),
+                radial-gradient(circle at 70% 60%, rgba(20, 40, 80, 0.15), transparent 45%),
+                radial-gradient(ellipse at 50% 50%, #141a2a, #06070e);
+        }
+        #screen-telegram .tg-bg::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.01) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.01) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            opacity: 0.15;
+        }
+        #screen-telegram .tg-box {
+            position: relative;
+            z-index: 2;
+            background: rgba(16, 20, 34, 0.6);
+            backdrop-filter: blur(20px);
+            padding: 36px 44px;
+            border-radius: 32px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            max-width: 480px;
+            text-align: center;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+            transform: perspective(800px) rotateX(2deg);
+            transition: transform 0.6s;
+        }
+        #screen-telegram .tg-box:hover {
+            transform: perspective(800px) rotateX(0deg);
+        }
+        #screen-telegram .tg-icon {
+            font-size: 3.2rem;
+            display: block;
+            margin-bottom: 4px;
+            animation: float-msg 2.8s ease-in-out infinite;
+        }
+        @keyframes float-msg {
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-8px);
+            }
+        }
+
+        /* ============================================================ */
+        /* 7. ТА САМАЯ ВСТРЕЧА                                            */
+        /* ============================================================ */
+        #screen-car .car-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background:
+                radial-gradient(ellipse at 40% 60%, rgba(40, 60, 80, 0.3), transparent 55%),
+                radial-gradient(ellipse at 60% 40%, rgba(20, 40, 60, 0.2), transparent 50%),
+                radial-gradient(ellipse at 50% 50%, #141c24, #06080e);
+        }
+        #screen-car .car-bg::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(45deg, transparent, transparent 60px, rgba(255, 255, 255, 0.01) 60px, rgba(255, 255, 255, 0.01) 62px);
+            pointer-events: none;
+            opacity: 0.2;
+        }
+        #screen-car .car-flash {
+            position: relative;
+            z-index: 2;
+            max-width: 560px;
+            width: 100%;
+            min-height: 280px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        #screen-car .flash-card {
+            position: absolute;
+            opacity: 0;
+            transform: translateY(30px) scale(0.95);
+            transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+            text-align: center;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(12px);
+            padding: 28px 36px;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-left: 4px solid rgba(255, 180, 200, 0.2);
+            max-width: 480px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        #screen-car .flash-card.show {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+        #screen-car .flash-card .card-label {
+            font-size: 1.1rem;
+            font-weight: 300;
+            line-height: 1.6;
+        }
+        #screen-car .flash-card .card-label em {
+            font-style: normal;
+            color: #ffb8c8;
+            font-weight: 400;
+        }
+
+        /* ============================================================ */
+        /* 8. ЛИЛИИ — с местом для картинки                              */
+        /* ============================================================ */
+        #screen-lily .lily-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background:
+                radial-gradient(circle at 30% 40%, rgba(120, 60, 100, 0.25), transparent 50%),
+                radial-gradient(circle at 70% 60%, rgba(80, 40, 70, 0.2), transparent 45%),
+                radial-gradient(ellipse at 50% 40%, #291d2a, #0c0810);
+        }
+        #screen-lily .lily-bg::after {
+            content: '🌷🌷🌷';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            font-size: 4rem;
+            letter-spacing: 40px;
+            color: rgba(255, 180, 200, 0.03);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            pointer-events: none;
+            transform: rotate(20deg) scale(1.5);
+        }
+        #screen-lily .lily-container {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 520px;
+            text-align: center;
+        }
+        .lily-image-container {
+            margin: 16px 0 12px;
+            text-align: center;
+            width: 100%;
+        }
+        .lily-image {
+            max-width: 100%;
+            max-height: 260px;
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            object-fit: cover;
+            display: inline-block;
+        }
+        #screen-lily .lily-buds {
+            display: flex;
+            gap: 32px;
+            margin: 8px 0 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        #screen-lily .lily-bud {
+            font-size: 4rem;
+            cursor: pointer;
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            filter: grayscale(0.7) brightness(0.5);
+            transform: scale(0.85);
+            opacity: 0.5;
+            position: relative;
+        }
+        #screen-lily .lily-bud:hover {
+            transform: scale(1.05);
+            filter: grayscale(0.3) brightness(0.8);
+            opacity: 0.7;
+        }
+        #screen-lily .lily-bud.opened {
+            filter: grayscale(0) brightness(1);
+            transform: scale(1.15);
+            opacity: 1;
+            animation: bloom-lily 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        @keyframes bloom-lily {
+            0% {
+                transform: scale(0.6) rotate(-15deg);
+                opacity: 0.2;
+            }
+            60% {
+                transform: scale(1.3) rotate(6deg);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1.15) rotate(0);
+                opacity: 1;
+            }
+        }
+        #screen-lily .lily-bud .bud-label {
+            display: block;
+            font-size: 0.7rem;
+            margin-top: 6px;
+            color: rgba(255, 255, 255, 0.3);
+            font-weight: 300;
+            letter-spacing: 0.04em;
+            transition: 0.4s;
+        }
+        #screen-lily .lily-bud.opened .bud-label {
+            color: rgba(255, 200, 220, 0.9);
+        }
+        #screen-lily .lily-message {
+            margin-top: 12px;
+            font-size: 1rem;
+            opacity: 0;
+            transition: opacity 0.7s ease;
+            min-height: 64px;
+            color: rgba(255, 220, 230, 0.95);
+            font-weight: 300;
+            line-height: 1.6;
+            max-width: 440px;
+        }
+        #screen-lily .lily-message.show {
+            opacity: 1;
+        }
+
+        /* ============================================================ */
+        /* 9. ВСПЫШКИ ПАМЯТИ — контейнер для фото                        */
+        /* ============================================================ */
+        #screen-memories .mem-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background: radial-gradient(ellipse at 50% 50%, #0f0b18, #08050f);
+        }
+        #screen-memories .mem-bg::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(255, 255, 255, 0.01) 8px, rgba(255, 255, 255, 0.01) 9px);
+            pointer-events: none;
+            opacity: 0.15;
+        }
+        #screen-memories .mem-slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 1.2s cubic-bezier(0.23, 1, 0.32, 1);
+            z-index: 1;
+            padding: 40px;
+            background: radial-gradient(ellipse at center, rgba(20, 14, 30, 0.6), rgba(5, 3, 10, 0.95));
+        }
+        #screen-memories .mem-slide.active {
+            opacity: 1;
+            z-index: 5;
+        }
+        #screen-memories .mem-slide .mem-photo {
+            width: 220px;
+            height: 220px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), inset 0 0 60px rgba(255, 180, 200, 0.02);
+            overflow: hidden;
+            background-size: cover;
+            background-position: center;
+            transform: perspective(600px) rotateY(2deg);
+            transition: transform 0.6s;
+        }
+        #screen-memories .mem-slide.active .mem-photo {
+            transform: perspective(600px) rotateY(0deg);
+        }
+        #screen-memories .mem-slide .mem-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: inherit;
+            display: block;
+        }
+        #screen-memories .mem-slide .mem-caption {
+            font-size: 1.3rem;
+            font-weight: 300;
+            letter-spacing: 0.05em;
+            color: rgba(255, 255, 255, 0.6);
+            max-width: 400px;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+            padding-top: 14px;
+        }
+        #screen-memories .mem-progress {
+            position: absolute;
+            bottom: 44px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            display: flex;
+            gap: 10px;
+        }
+        #screen-memories .mem-progress .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        #screen-memories .mem-progress .dot.active {
+            background: rgba(255, 200, 220, 0.7);
+            width: 28px;
+            border-radius: 6px;
+            box-shadow: 0 0 20px rgba(255, 200, 220, 0.15);
+        }
+
+        /* ============================================================ */
+        /* 10. ПАЗЛ                                                       */
+        /* ============================================================ */
+        #screen-puzzle .puzzle-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background:
+                radial-gradient(circle at 30% 40%, rgba(80, 60, 140, 0.2), transparent 50%),
+                radial-gradient(circle at 70% 60%, rgba(60, 40, 100, 0.15), transparent 45%),
+                radial-gradient(ellipse at 50% 50%, #19142a, #07050e);
+        }
+        #screen-puzzle .puzzle-bg::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(45deg, rgba(255, 255, 255, 0.01) 1px, transparent 1px),
+                linear-gradient(-45deg, rgba(255, 255, 255, 0.01) 1px, transparent 1px);
+            background-size: 30px 30px;
+            pointer-events: none;
+            opacity: 0.1;
+        }
+        #screen-puzzle .puzzle-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: center;
+            max-width: 500px;
+            margin: 20px 0 12px;
+            position: relative;
+            z-index: 2;
+        }
+        #screen-puzzle .puzzle-word {
+            padding: 14px 28px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 60px;
+            font-size: 1.1rem;
+            font-weight: 400;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+            letter-spacing: 0.06em;
+            color: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(4px);
+        }
+        #screen-puzzle .puzzle-word:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+        #screen-puzzle .puzzle-word.selected {
+            background: rgba(255, 180, 200, 0.15);
+            border-color: rgba(255, 180, 200, 0.25);
+            color: #fff;
+            transform: scale(1.06);
+        }
+        #screen-puzzle .puzzle-word.used {
+            opacity: 0.15;
+            pointer-events: none;
+            transform: scale(0.85);
+        }
+        #screen-puzzle .puzzle-result {
+            margin-top: 16px;
+            font-size: 1.4rem;
+            font-weight: 300;
+            color: rgba(255, 200, 220, 0.9);
+            min-height: 52px;
+            letter-spacing: 0.08em;
+            text-shadow: 0 0 40px rgba(255, 200, 220, 0.05);
+            position: relative;
+            z-index: 2;
+        }
+
+        /* ============================================================ */
+        /* 11. BMW                                                        */
+        /* ============================================================ */
+        #screen-bmw .bmw-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background:
+                radial-gradient(circle at 40% 40%, rgba(40, 80, 140, 0.2), transparent 50%),
+                radial-gradient(circle at 60% 60%, rgba(20, 60, 120, 0.15), transparent 45%),
+                radial-gradient(ellipse at 40% 60%, #101724, #04060c);
+        }
+        #screen-bmw .bmw-neon {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: radial-gradient(circle at center, rgba(255, 180, 200, 0.04), transparent 70%);
+            z-index: 1;
+            pointer-events: none;
+            animation: neon-pulse 3s ease-in-out infinite;
+        }
+        @keyframes neon-pulse {
+            0%,
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0.4;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.2);
+                opacity: 0.8;
+            }
+        }
+        #screen-bmw .bmw-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            max-width: 540px;
+        }
+        #screen-bmw .bmw-car {
+            font-size: 7rem;
+            display: block;
+            margin: 12px auto 8px;
+            filter: drop-shadow(0 20px 60px rgba(255, 180, 200, 0.15));
+            transition: 0.4s;
+        }
+        #screen-bmw .bmw-car.rev {
+            animation: rev-car 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes rev-car {
+            0% {
+                transform: scale(1) rotate(0);
+            }
+            30% {
+                transform: scale(1.12) rotate(-4deg);
+            }
+            70% {
+                transform: scale(0.92) rotate(4deg);
+            }
+            100% {
+                transform: scale(1) rotate(0);
+            }
+        }
+
+        /* ============================================================ */
+        /* 12. БАБОЧКИ                                                    */
+        /* ============================================================ */
+        #screen-butterfly .bf-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background:
+                radial-gradient(circle at 30% 30%, rgba(80, 60, 160, 0.15), transparent 50%),
+                radial-gradient(circle at 70% 70%, rgba(60, 40, 140, 0.1), transparent 45%),
+                radial-gradient(ellipse at 50% 50%, #13182a, #05040c);
+        }
+        #screen-butterfly .bf-bg::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: repeating-linear-gradient(60deg, transparent, transparent 40px, rgba(255, 255, 255, 0.005) 40px, rgba(255, 255, 255, 0.005) 42px);
+            pointer-events: none;
+            opacity: 0.2;
+        }
+        #screen-butterfly .bf-swarm {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+            overflow: hidden;
+        }
+        .bf-emoji {
+            position: absolute;
+            font-size: 2.2rem;
+            animation: fly-around 14s linear infinite;
+            opacity: 0.3;
+            will-change: transform;
+            filter: drop-shadow(0 0 20px rgba(255, 200, 220, 0.05));
+        }
+        @keyframes fly-around {
+            0% {
+                transform: translate(0, 0) rotate(0deg) scale(0.7);
+                opacity: 0.1;
+            }
+            25% {
+                transform: translate(140px, -100px) rotate(50deg) scale(1.3);
+                opacity: 0.7;
+            }
+            50% {
+                transform: translate(-80px, 80px) rotate(-30deg) scale(0.9);
+                opacity: 0.5;
+            }
+            75% {
+                transform: translate(100px, -60px) rotate(70deg) scale(1.2);
+                opacity: 0.8;
+            }
+            100% {
+                transform: translate(0, 0) rotate(0deg) scale(0.7);
+                opacity: 0.1;
+            }
+        }
+        #screen-butterfly .bf-container {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            max-width: 540px;
+        }
+        #screen-butterfly .bf-catch {
+            margin-top: 20px;
+            font-size: 1.05rem;
+            color: rgba(255, 200, 220, 0.5);
+            min-height: 44px;
+            transition: 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        #screen-butterfly .bf-catch.caught {
+            color: #ffd4e0;
+            font-weight: 400;
+            text-shadow: 0 0 40px rgba(255, 200, 220, 0.1);
+        }
+
+        /* ============================================================ */
+        /* 13. СВЕЧА                                                      */
+        /* ============================================================ */
+        #screen-candle .candle-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background:
+                radial-gradient(circle at 50% 70%, rgba(180, 100, 60, 0.15), transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(120, 70, 40, 0.08), transparent 45%),
+                radial-gradient(ellipse at 50% 70%, #1a1320, #07040b);
+        }
+        #screen-candle .candle-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            max-width: 460px;
+        }
+        #screen-candle .candle-flame {
+            font-size: 5.6rem;
+            display: block;
+            animation: flicker 0.7s ease-in-out infinite alternate;
+            filter: drop-shadow(0 0 80px rgba(255, 160, 80, 0.25)) drop-shadow(0 0 160px rgba(255, 120, 60, 0.08));
+        }
+        @keyframes flicker {
+            0% {
+                transform: scale(1) rotate(-3deg);
+                opacity: 0.85;
+            }
+            100% {
+                transform: scale(1.08) rotate(3deg);
+                opacity: 1;
+            }
+        }
+        #screen-candle .candle-flame.out {
+            animation: none;
+            opacity: 0.1;
+            transform: scale(0.5);
+            filter: drop-shadow(0 0 10px rgba(255, 160, 80, 0.02));
+            transition: all 0.8s ease;
+        }
+
+        /* ============================================================ */
+        /* 14. ФИНАЛ                                                      */
+        /* ============================================================ */
+        #screen-final .final-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background:
+                radial-gradient(circle at 30% 20%, rgba(100, 60, 120, 0.2), transparent 50%),
+                radial-gradient(circle at 70% 80%, rgba(60, 30, 80, 0.15), transparent 45%),
+                radial-gradient(ellipse at 40% 30%, #2a1a28, #090712);
+        }
+        #screen-final .final-stars {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+            background-image:
+                radial-gradient(2px 2px at 20% 30%, rgba(255, 255, 255, 0.3), transparent),
+                radial-gradient(2px 2px at 40% 70%, rgba(255, 255, 255, 0.2), transparent),
+                radial-gradient(3px 3px at 60% 20%, rgba(255, 255, 255, 0.2), transparent),
+                radial-gradient(1px 1px at 80% 80%, rgba(255, 255, 255, 0.3), transparent),
+                radial-gradient(2px 2px at 10% 90%, rgba(255, 255, 255, 0.15), transparent);
+            background-size: 200px 200px;
+            background-repeat: repeat;
+            animation: twinkle 4s ease-in-out infinite alternate;
+        }
+        @keyframes twinkle {
+            0% {
+                opacity: 0.5;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+        #screen-final .final-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            max-width: 640px;
+            padding: 20px;
+        }
+        #screen-final .final-content .final-title {
+            font-family: 'Caveat', cursive;
+            font-size: clamp(3.2rem, 12vw, 6rem);
+            font-weight: 700;
+            background: linear-gradient(135deg, #ffd4e0, #f0b8cc, #ffd4e0);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradient-shift 4s ease-in-out infinite;
+            text-shadow: none;
+            margin-bottom: 12px;
+        }
+        @keyframes gradient-shift {
+            0%,
+            100% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+        }
+        #screen-final .final-content .final-body {
+            font-size: clamp(0.95rem, 2vw, 1.2rem);
+            font-weight: 300;
+            line-height: 1.8;
+            color: rgba(255, 255, 255, 0.75);
+            max-width: 520px;
+            margin: 0 auto;
+        }
+
+        /* ============================================================ */
+        /* 15. ПОДАРОК                                                    */
+        /* ============================================================ */
+        #screen-gift .gift-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background:
+                radial-gradient(circle at 40% 30%, rgba(200, 150, 200, 0.1), transparent 50%),
+                radial-gradient(circle at 60% 70%, rgba(150, 100, 180, 0.08), transparent 45%),
+                radial-gradient(ellipse at 50% 50%, #181428, #08050e);
+        }
+        #screen-gift .gift-bg::after {
+            content: '✨ ✨ ✨';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            font-size: 2.5rem;
+            letter-spacing: 60px;
+            color: rgba(255, 255, 255, 0.02);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            pointer-events: none;
+            transform: rotate(-10deg) scale(1.8);
+        }
+        #screen-gift .gift-box {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            max-width: 460px;
+        }
+        #screen-gift .gift-icon {
+            font-size: 5.6rem;
+            display: block;
+            animation: pulse-gift 2.4s ease-in-out infinite;
+            filter: drop-shadow(0 20px 60px rgba(255, 180, 200, 0.1));
+        }
+        @keyframes pulse-gift {
+            0%,
+            100% {
+                transform: scale(1) rotate(-2deg);
+            }
+            50% {
+                transform: scale(1.08) rotate(2deg);
+            }
+        }
+
+        /* ============================================================ */
+        /* 16. СЮРПРИЗ — полноэкранное фото                              */
+        /* ============================================================ */
+        #screen-surprise {
+            padding: 0 !important;
+            padding-top: 0 !important;
+            background: #000;
+        }
+        #screen-surprise .surprise-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        #screen-surprise .surprise-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            z-index: 2;
+            pointer-events: none;
+        }
+        #screen-surprise .surprise-btn {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+
+        /* ============================================================ */
+        /* 17. ПОСЛЕСЛОВИЕ                                                */
+        /* ============================================================ */
+        #screen-epilogue .epilogue-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background:
+                radial-gradient(circle at 50% 50%, rgba(100, 80, 140, 0.05), transparent 60%),
+                #05040a;
+        }
+        #screen-epilogue .epilogue-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            background: radial-gradient(circle at center, rgba(255, 180, 200, 0.02), transparent 70%);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* ===== АДАПТИВ ===== */
+        @media (max-width: 480px) {
+            .screen {
+                padding: 16px;
+                padding-top: 76px;
+            }
+            #progress-bar {
+                padding: 8px 12px 6px;
+                gap: 0;
+            }
+            .progress-step .step-icon {
+                font-size: 0.9rem;
+            }
+            .progress-step .step-label {
+                font-size: 0.35rem;
+            }
+            .progress-connector {
+                width: 10px;
+            }
+            .progress-step .step-line {
+                width: 10px;
+            }
+            #screen-glass .glass-card {
+                padding: 32px 20px;
+            }
+            #screen-lily .lily-buds {
+                gap: 18px;
+            }
+            #screen-lily .lily-bud {
+                font-size: 3rem;
+            }
+            #screen-bmw .bmw-car {
+                font-size: 4.8rem;
+            }
+            #screen-memories .mem-slide .mem-photo {
+                width: 150px;
+                height: 150px;
+            }
+            #screen-memories .mem-slide .mem-caption {
+                font-size: 1rem;
+            }
+            #screen-puzzle .puzzle-word {
+                padding: 10px 18px;
+                font-size: 0.95rem;
+            }
+            .lily-image {
+                max-height: 180px;
+            }
+            #screen-surprise .surprise-btn {
+                bottom: 30px;
+                padding: 12px 32px;
+                font-size: 0.95rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== АНИМИРОВАННЫЙ ФОН (Canvas) ===== -->
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- ============================================================ -->
+    <!-- ===== ПРОГРЕСС-БАР СВЕРХУ ===== -->
+    <!-- ============================================================ -->
+    <div id="progress-bar">
+        <!-- шаги заполняются через JS -->
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 1. СТЕКЛО                                                      -->
+    <!-- ============================================================ -->
+    <div id="screen-glass" class="screen active">
+        <div class="glass-bg"></div>
+        <div class="glass-card">
+            <div class="envelope">✉️</div>
+            <p style="font-size:1.2rem;font-weight:300;margin-bottom:4px;color:rgba(255,255,255,0.5);">
+                У тебя есть одно сообщение…
+            </p>
+            <p style="font-size:0.9rem;color:rgba(255,255,255,0.2);margin-bottom:18px;">
+                но оно откроется только ночью
+            </p>
+            <div class="wipe-area" id="wipeArea">
+                <span class="wipe-label">👆 проведи пальцем</span>
+                <div class="wipe-fill" id="wipeFill"></div>
+            </div>
+            <div class="wipe-status" id="wipeStatus"></div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 2. КОНВЕРТ                                                     -->
+    <!-- ============================================================ -->
+    <div id="screen-letter" class="screen">
+        <div class="letter-bg"></div>
+        <div class="letter-content">
+            <div class="letter-seal">💌</div>
+            <p class="title" style="font-size:clamp(2rem,5vw,3rem);">Приглашение</p>
+            <p class="sub" style="max-width:520px;">
+                Не хотел как‑то банально поздравлять, поэтому приглашаю тебя сюда. Насть, сегодня твой день, и я хочу подарить тебе этот мини‑квест. Пройди путь от «Привет!» до «Я безумно рад, что ты есть!» Тут тебя ждут просто мои слова, никаких сложных загадок - листай, читай и улыбайся)
+            </p>
+            <button class="btn btn-primary" onclick="goToScreen('screen-time')">Открыть</button>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 3. ЧАСЫ                                                        -->
+    <!-- ============================================================ -->
+    <div id="screen-time" class="screen">
+        <div class="time-bg"></div>
+        <div class="time-ring">
+            <p style="font-size:0.8rem;color:rgba(255,255,255,0.15);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:8px;">Проверка времени</p>
+            <div class="clock" id="clockDisplay">--:--</div>
+            <p class="sub" style="font-size:0.95rem;margin-top:12px;">
+                Сегодня доступ открыт только для тебя
+            </p>
+            <button class="btn" onclick="goToScreen('screen-college')">Я здесь</button>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 4. КОЛЛЕДЖ                                                     -->
+    <!-- ============================================================ -->
+    <div id="screen-college" class="screen">
+        <div class="college-bg"></div>
+        <div class="college-vignette"></div>
+        <div class="content">
+            <p style="font-size:0.7rem;color:rgba(255,255,255,0.15);letter-spacing:0.2em;text-transform:uppercase;">2023</p>
+            <p class="title" style="font-size:clamp(2.2rem,6vw,4rem);">Тот самый колледж</p>
+            <p class="sub" style="max-width:560px;">
+                Ты — первокурсница с глазами, в которых можно утонуть. Я — четверокурсник. Мы даже не знали, что это случайное замечание моему брелку станет закладкой в моей памяти ахвхавх. А потом была тишина, но..
+            </p>
+            <button class="btn" onclick="goToScreen('screen-silence')">Дальше</button>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 5. ТИШИНА                                                      -->
+    <!-- ============================================================ -->
+    <div id="screen-silence" class="screen">
+        <div class="silence-bg"></div>
+        <div class="silence-pulse">
+            <p style="font-size:3.6rem;margin-bottom:6px;opacity:0.2;">⏳</p>
+            <p class="title" style="font-size:clamp(2.2rem,5vw,3.2rem);">Тишина</p>
+            <p class="sub" style="font-size:1rem;color:rgba(255,255,255,0.4);">
+                Чуть больше двух лет я не видел этих глаз. И не знал, что в апреле 2026 они снова на меня посмотрят — и я поплыву.
+            </p>
+            <button class="btn" onclick="goToScreen('screen-telegram')">Дальше</button>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 6. ТЕЛЕГРАМ                                                    -->
+    <!-- ============================================================ -->
+    <div id="screen-telegram" class="screen">
+        <div class="tg-bg"></div>
+        <div class="tg-box">
+            <span class="tg-icon">📱</span>
+            <p style="font-size:1.1rem;font-weight:300;margin-bottom:4px;">Апрель 2026. Один ответ на историю</p>
+            <p class="sub" style="font-size:0.95rem;max-width:400px;margin:6px auto;">
+                Я ответил на твою историю и в ту же ночь ждал тебя у твоего дома, чтобы мы сели в машину и забыли о времени)
+            </p>
+            <button class="btn btn-primary" onclick="goToScreen('screen-car')">Ответить</button>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 7. ТА САМАЯ ВСТРЕЧА                                            -->
+    <!-- ============================================================ -->
+    <div id="screen-car" class="screen">
+        <div class="car-bg"></div>
+        <div style="position:relative;z-index:2;text-align:center;max-width:560px;width:100%;">
+            <p style="font-size:0.7rem;color:rgba(255,255,255,0.12);letter-spacing:0.2em;text-transform:uppercase;">Та самая встреча</p>
+            <div class="car-flash" id="carFlashContainer"></div>
+            <button class="btn" id="carNextBtn" onclick="nextCarFlash()" style="margin-top:20px;">Дальше</button>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 8. ЛИЛИИ — с картинкой                                        -->
+    <!-- ============================================================ -->
+    <div id="screen-lily" class="screen">
+        <div class="lily-bg"></div>
+        <div class="lily-container">
+            <p style="font-size:0.7rem;color:rgba(255,255,255,0.12);letter-spacing:0.2em;text-transform:uppercase;">Твой цветок</p>
+            <p class="title" style="font-size:clamp(2.2rem,5vw,3.4rem);">Лилии</p>
+            <p class="sub" style="font-size:0.95rem;max-width:460px;margin-bottom:6px;">
+                Ты любишь лилии. Это символ чистоты, изящества, красоты и женственности. Как раз-таки про тебя!
+            </p>
+
+            <!-- ===== КАРТИНКА ЛИЛИЙ (вставь ссылку в src) ===== -->
+            <div class="lily-image-container">
+                <img class="lily-image" src="https://i.pinimg.com/originals/e0/3e/25/e03e2507f14a0fb0e1796c7f0fb38c13.jpg?nii=t" alt="Лилии" />
+            </div>
+            <!-- ================================================= -->
+
+            <div class="lily-buds" id="lilyBuds">
+                <div class="lily-bud" data-index="0" onclick="openLily(0)">🌷<span class="bud-label">глаза</span></div>
+                <div class="lily-bud" data-index="1" onclick="openLily(1)">🌷<span class="bud-label">улыбка</span></div>
+                <div class="lily-bud" data-index="2" onclick="openLily(2)">🌷<span class="bud-label">ты</span></div>
+            </div>
+            <div class="lily-message" id="lilyMessage"></div>
+            <button class="btn" id="lilyNextBtn" onclick="goToScreen('screen-memories')" style="display:none;">Дальше</button>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 9. ВСПЫШКИ ПАМЯТИ — с реальными фото                          -->
+    <!-- ============================================================ -->
+    <div id="screen-memories" class="screen">
+        <div class="mem-bg"></div>
+        <div id="memSlidesContainer"></div>
+        <div class="mem-progress" id="memProgress"></div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 10. ПАЗЛ                                                       -->
+    <!-- ============================================================ -->
+    <div id="screen-puzzle" class="screen">
+        <div class="puzzle-bg"></div>
+        <div style="position:relative;z-index:2;text-align:center;max-width:520px;">
+            <p style="font-size:0.7rem;color:rgba(255,255,255,0.12);letter-spacing:0.2em;text-transform:uppercase;">Собери смысл</p>
+            <p class="sub" style="font-size:0.95rem;margin-bottom:6px;">Кликни слова в правильном порядке</p>
+            <div class="puzzle-area" id="puzzleArea"></div>
+            <div class="puzzle-result" id="puzzleResult"></div>
+            <button class="btn" id="puzzleNextBtn" onclick="goToScreen('screen-bmw')" style="display:none;">Дальше</button>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 11. BMW                                                        -->
+    <!-- ============================================================ -->
+    <div id="screen-bmw" class="screen">
+        <div class="bmw-bg"></div>
+        <div class="bmw-neon"></div>
+        <div class="bmw-content">
+            <p style="font-size:0.7rem;color:rgba(255,255,255,0.12);letter-spacing:0.2em;text-transform:uppercase;">Твоя BMW</p>
+            <span class="bmw-car" id="bmwCarEmoji">🚗</span>
+            <p class="title" style="font-size:clamp(2rem,5vw,3.2rem);">BMW E46</p>
+            <p class="sub" style="font-size:0.95rem;max-width:460px;">
+                Блин, хочу еще раз поздравить тебя с тем что у тебя появилась своя машина! Да, сейчас ее нужно привести в порядок, но всё в скором времени будет, Насть, я верю в тебя. Ты сядешь наконец за руль и будешь получать те эмоции о которых мечтаешь. А с любыми трудностями я помогу.
+            </p>
+            <button class="btn btn-primary" onclick="revBMW()">🏎️ Завести мотор</button>
+            <p id="bmwFeedback" style="margin-top:12px;font-size:0.9rem;color:rgba(255,200,220,0.4);min-height:24px;"></p>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 12. БАБОЧКИ                                                    -->
+    <!-- ============================================================ -->
+    <div id="screen-butterfly" class="screen">
+        <div class="bf-bg"></div>
+        <div class="bf-swarm" id="bfSwarm"></div>
+        <div class="bf-container">
+            <p style="font-size:0.7rem;color:rgba(255,255,255,0.12);letter-spacing:0.2em;text-transform:uppercase;">Тайна</p>
+            <p class="title" style="font-size:clamp(2.2rem,5vw,3.4rem);">Бабочки 🦋</p>
+            <p class="sub" style="font-size:0.95rem;max-width:480px;">
+                Знаешь, Насть, я долго не мог понять… Почему каждый раз, когда ты появляешься — у меня внутри всё переворачивается. И вот недавно я наткнулся на факт: 19 июня — это Всемирный день бабочек. Теперь я знаю: природа не случайно выбрала этот день для твоего появления.
+            </p>
+            <button class="btn btn-primary" onclick="catchButterfly()">🦋 Поймать бабочку</button>
+            <div class="bf-catch" id="bfCatch"></div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 13. СВЕЧА                                                      -->
+    <!-- ============================================================ -->
+    <div id="screen-candle" class="screen">
+        <div class="candle-bg"></div>
+        <div class="candle-content">
+            <p style="font-size:0.7rem;color:rgba(255,255,255,0.12);letter-spacing:0.2em;text-transform:uppercase;">Загадай желание</p>
+            <span class="candle-flame" id="candleFlame">🕯️</span>
+            <p class="sub" style="font-size:0.95rem;max-width:400px;">
+                Представь, что ты стоишь рядом с ней, закрой глаза и загадай самое сокровенное желание…
+            </p>
+            <button class="btn btn-primary" onclick="blowCandle()">💨 Задуть свечу</button>
+            <p id="candleFeedback" style="margin-top:12px;font-size:0.9rem;color:rgba(255,200,220,0.4);min-height:24px;"></p>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 14. ФИНАЛ                                                      -->
+    <!-- ============================================================ -->
+    <div id="screen-final" class="screen">
+        <div class="final-bg"></div>
+        <div class="final-stars"></div>
+        <div class="final-content">
+            <div class="final-title">С днём рождения, Настя!</div>
+            <p class="final-body">
+                Твои глаза — это два океана, в которых я тону каждый раз. Твоё лицо — это портрет, который я хочу рассматривать вечно. Твоя красота — это то, что заставляет меня забывать, что я вообще хотел сказать. Спасибо, что ты есть, что ты искренняя и настоящая. Спасибо, что ты вернулась в мою жизнь — через историю, через наши встречи и поездки, через все диалоги. С днём рождения!
+            </p>
+            <button class="btn btn-primary" onclick="goToScreen('screen-gift')">🎁 Открыть подарок</button>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 15. ПОДАРОК                                                    -->
+    <!-- ============================================================ -->
+    <div id="screen-gift" class="screen">
+        <div class="gift-bg"></div>
+        <div class="gift-box">
+            <span class="gift-icon">🎁</span>
+            <p class="title" style="font-size:clamp(2rem,5vw,3rem);">Твой подарок</p>
+            <p class="sub" style="font-size:0.95rem;max-width:400px;">
+                Сделал кое-что прикольное, нажми на кнопку ниже, чтобы открыть.
+            </p>
+            <button class="btn btn-primary" onclick="openGift()">✨ Открыть</button>
+            <div id="giftReveal" style="margin-top:18px;font-size:1.1rem;color:rgba(255,200,220,0.8);min-height:44px;"></div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 16. СЮРПРИЗ — полноэкранное фото                              -->
+    <!-- ============================================================ -->
+    <div id="screen-surprise" class="screen">
+        <!-- ↓↓↓ ВСТАВЬ ССЫЛКУ НА СВОЁ ФОТО В АТРИБУТ src ↓↓↓ -->
+        <img class="surprise-image" src="https://i.imgur.com/8oimsAy.jpeg" alt="Сюрприз" />
+        <!-- ================================================= -->
+        <div class="surprise-overlay"></div>
+        <button class="btn btn-primary surprise-btn" onclick="goToScreen('screen-epilogue')">Дальше 💫</button>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 17. ПОСЛЕСЛОВИЕ                                                -->
+    <!-- ============================================================ -->
+    <div id="screen-epilogue" class="screen">
+        <div class="epilogue-bg"></div>
+        <div class="epilogue-glow"></div>
+        <div style="position:relative;z-index:2;text-align:center;max-width:480px;">
+            <p style="font-size:3.6rem;margin-bottom:6px;">💫</p>
+            <p class="title" style="font-size:clamp(2rem,5vw,3rem);">Ты улыбаешься?</p>
+            <p class="sub" style="font-size:0.95rem;color:rgba(255,255,255,0.4);">
+                Значит, всё получилось, не зря старался. Потому что за всё это время я понял: с тобой хочется не только встречи и разговоры, а целые жизни. Еще раз с твоим днём рождения ❤️. Ну и еще зайди в банк 🥰
+            </p>
+            <button class="btn" onclick="restart()">🔄 Пройти путь заново</button>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- JAVASCRIPT                                                     -->
+    <!-- ============================================================ -->
+    <script>
+        // ================================================================
+        //  ДАННЫЕ ДЛЯ ПРОГРЕСС-БАРА (теперь 17 шагов)
+        // ================================================================
+        const steps = [
+            { id: 'screen-glass', icon: '✉️', label: 'Стекло' },
+            { id: 'screen-letter', icon: '💌', label: 'Конверт' },
+            { id: 'screen-time', icon: '🕐', label: 'Время' },
+            { id: 'screen-college', icon: '🎓', label: 'Колледж' },
+            { id: 'screen-silence', icon: '⏳', label: 'Тишина' },
+            { id: 'screen-telegram', icon: '📱', label: 'Телеграм' },
+            { id: 'screen-car', icon: '🚗', label: 'Встреча' },
+            { id: 'screen-lily', icon: '🌷', label: 'Лилии' },
+            { id: 'screen-memories', icon: '📸', label: 'Воспоминания' },
+            { id: 'screen-puzzle', icon: '🧩', label: 'Пазл' },
+            { id: 'screen-bmw', icon: '🏎️', label: 'BMW' },
+            { id: 'screen-butterfly', icon: '🦋', label: 'Бабочки' },
+            { id: 'screen-candle', icon: '🕯️', label: 'Свеча' },
+            { id: 'screen-final', icon: '🎉', label: 'Финал' },
+            { id: 'screen-gift', icon: '🎁', label: 'Подарок' },
+            { id: 'screen-surprise', icon: '🖼️', label: 'Сюрприз' },
+            { id: 'screen-epilogue', icon: '💫', label: 'Послесловие' }
+        ];
+
+        // ================================================================
+        //  АНИМИРОВАННЫЙ ФОН
+        // ================================================================
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let w, h;
+
+        function resizeCanvas() {
+            w = canvas.width = window.innerWidth;
+            h = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        const particles = [];
+        for (let i = 0; i < 60; i++) {
+            particles.push({
+                x: Math.random() * w,
+                y: Math.random() * h,
+                r: Math.random() * 2 + 0.5,
+                dx: (Math.random() - 0.5) * 0.25,
+                dy: (Math.random() - 0.5) * 0.25,
+                a: Math.random() * 0.3 + 0.05
+            });
+        }
+
+        function drawBg() {
+            ctx.clearRect(0, 0, w, h);
+            const time = Date.now() * 0.0003;
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, h * 0.5 + Math.sin(time + i * 1.2) * 60 + i * 30);
+                for (let x = 0; x <= w; x += 4) {
+                    const y = h * 0.5 +
+                        Math.sin(x * 0.005 + time + i * 1.5) * 40 +
+                        Math.sin(x * 0.012 + time * 0.7 + i * 1.1) * 20 +
+                        i * 25;
+                    ctx.lineTo(x, y);
+                }
+                ctx.strokeStyle = `rgba(255, 180, 200, ${0.03 + i * 0.01})`;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+            particles.forEach(p => {
+                p.x += p.dx;
+                p.y += p.dy;
+                if (p.x < 0 || p.x > w) p.dx *= -1;
+                if (p.y < 0 || p.y > h) p.dy *= -1;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 200, 220, ${p.a})`;
+                ctx.fill();
+            });
+            requestAnimationFrame(drawBg);
+        }
+        drawBg();
+
+        // ================================================================
+        //  ПРОГРЕСС-БАР
+        // ================================================================
+        const progressBar = document.getElementById('progress-bar');
+
+        function buildProgressBar() {
+            progressBar.innerHTML = '';
+            steps.forEach((step, index) => {
+                if (index > 0) {
+                    const conn = document.createElement('div');
+                    conn.className = 'progress-connector';
+                    conn.dataset.index = index;
+                    progressBar.appendChild(conn);
+                }
+                const stepEl = document.createElement('div');
+                stepEl.className = 'progress-step';
+                stepEl.dataset.stepId = step.id;
+                stepEl.dataset.index = index;
+                stepEl.innerHTML = `
+                    <span class="step-icon">${step.icon}</span>
+                    <span class="step-dot"></span>
+                    <span class="step-label">${step.label}</span>
+                `;
+                progressBar.appendChild(stepEl);
+            });
+        }
+        buildProgressBar();
+
+        function updateProgress(activeId) {
+            const stepEls = document.querySelectorAll('.progress-step');
+            const conns = document.querySelectorAll('.progress-connector');
+            let activeIndex = -1;
+
+            stepEls.forEach((el, i) => {
+                el.classList.remove('active', 'done');
+                if (el.dataset.stepId === activeId) {
+                    activeIndex = i;
+                    el.classList.add('active');
+                }
+            });
+
+            stepEls.forEach((el, i) => {
+                if (i < activeIndex) {
+                    el.classList.add('done');
+                }
+            });
+
+            conns.forEach((conn, i) => {
+                conn.classList.toggle('done', i <= activeIndex);
+            });
+
+            const activeEl = document.querySelector(`.progress-step[data-step-id="${activeId}"]`);
+            if (activeEl) {
+                const barRect = progressBar.getBoundingClientRect();
+                const elRect = activeEl.getBoundingClientRect();
+                if (elRect.left < barRect.left || elRect.right > barRect.right) {
+                    activeEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                }
+            }
+        }
+
+        // ================================================================
+        //  ПЕРЕХОДЫ МЕЖДУ ЭКРАНАМИ
+        // ================================================================
+        let currentScreen = 'screen-glass';
+        let isTransitioning = false;
+
+        function goToScreen(id) {
+            if (isTransitioning) return;
+            isTransitioning = true;
+
+            const old = document.getElementById(currentScreen);
+            const next = document.getElementById(id);
+            if (!next) { isTransitioning = false; return; }
+
+            old.classList.add('fade-out');
+            setTimeout(() => {
+                old.classList.remove('active');
+                old.classList.remove('fade-out');
+                next.classList.add('active');
+                currentScreen = id;
+                isTransitioning = false;
+
+                updateProgress(id);
+
+                if (id === 'screen-time') updateClock();
+                if (id === 'screen-car') initCarFlash();
+                if (id === 'screen-memories') initMemories();
+                if (id === 'screen-puzzle') initPuzzle();
+                if (id === 'screen-butterfly') initButterflies();
+                if (id === 'screen-candle') resetCandle();
+            }, 900);
+        }
+
+        // ================================================================
+        //  1. СТЕКЛО
+        // ================================================================
+        let wipeProgress = 0;
+        const wipeArea = document.getElementById('wipeArea');
+        const wipeFill = document.getElementById('wipeFill');
+        const wipeStatus = document.getElementById('wipeStatus');
+
+        function updateWipe(value) {
+            wipeProgress = Math.min(100, Math.max(0, value));
+            wipeFill.style.width = wipeProgress + '%';
+            if (wipeProgress >= 100) {
+                wipeArea.classList.add('done');
+                wipeStatus.textContent = '✅ Открыто!';
+                setTimeout(() => goToScreen('screen-letter'), 600);
+            } else {
+                wipeStatus.textContent = Math.round(wipeProgress) + '%';
+            }
+        }
+
+        let isWiping = false;
+        wipeArea.addEventListener('mousedown', (e) => { isWiping = true;
+            updateWipeFromEvent(e); });
+        window.addEventListener('mousemove', (e) => { if (isWiping) updateWipeFromEvent(e); });
+        window.addEventListener('mouseup', () => { isWiping = false; });
+        wipeArea.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            isWiping = true;
+            updateWipeFromEvent(e.touches[0]);
+        });
+        window.addEventListener('touchmove', (e) => {
+            if (isWiping) {
+                e.preventDefault();
+                updateWipeFromEvent(e.touches[0]);
+            }
+        }, { passive: false });
+        window.addEventListener('touchend', () => { isWiping = false; });
+
+        function updateWipeFromEvent(e) {
+            const rect = wipeArea.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            updateWipe(x * 100);
+        }
+
+        // ================================================================
+        //  3. ЧАСЫ
+        // ================================================================
+        function updateClock() {
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('clockDisplay').textContent = h + ':' + m;
+        }
+        setInterval(updateClock, 10000);
+
+        // ================================================================
+        //  7. ТА САМАЯ ВСТРЕЧА
+        // ================================================================
+        const carFlashData = [
+            'Ты села в машину и я сразу понял - мне уже не хочется никуда уезжать',
+            'Мы говорили обо всем, сплетничали обо всех. Было невероятно круто',
+            'На улице уже почти рассвет, но так не хотелось прощаться',
+            'Я понял что твой голос - это музыка, которую я готов слушать бесконечно'
+        ];
+        let carFlashIndex = 0;
+        let carFlashDone = false;
+
+        function initCarFlash() {
+            carFlashIndex = 0;
+            carFlashDone = false;
+            const container = document.getElementById('carFlashContainer');
+            container.innerHTML = '';
+            carFlashData.forEach((text, i) => {
+                const div = document.createElement('div');
+                div.className = 'flash-card';
+                div.dataset.index = i;
+                div.innerHTML = `<p class="card-label">${text}</p>`;
+                container.appendChild(div);
+            });
+            document.getElementById('carNextBtn').style.display = 'block';
+            showCarFlash(0);
+        }
+
+        function showCarFlash(index) {
+            const cards = document.querySelectorAll('#carFlashContainer .flash-card');
+            cards.forEach((c, i) => c.classList.toggle('show', i === index));
+        }
+
+        function nextCarFlash() {
+            if (carFlashDone) return;
+            carFlashIndex++;
+            if (carFlashIndex >= carFlashData.length) {
+                carFlashDone = true;
+                document.getElementById('carNextBtn').style.display = 'none';
+                setTimeout(() => goToScreen('screen-lily'), 500);
+                return;
+            }
+            showCarFlash(carFlashIndex);
+        }
+
+        // ================================================================
+        //  8. ЛИЛИИ
+        // ================================================================
+        const lilyMessages = [
+            'Твои глаза — как эти белые лепестки, в которых хочется потеряться.',
+            'Твоя улыбка — как аромат лилии, который остаётся в памяти надолго.',
+            'Ты сама — самый прекрасный цветок в этом саду.'
+        ];
+        let lilyOpened = [false, false, false];
+        let lilyCount = 0;
+
+        function openLily(index) {
+            if (lilyOpened[index]) return;
+            lilyOpened[index] = true;
+            lilyCount++;
+            const bud = document.querySelectorAll('.lily-bud')[index];
+            bud.classList.add('opened');
+            document.getElementById('lilyMessage').textContent = lilyMessages[index];
+            document.getElementById('lilyMessage').classList.add('show');
+            if (lilyCount >= 3) {
+                document.getElementById('lilyNextBtn').style.display = 'inline-block';
+            }
+        }
+
+        // ================================================================
+        //  9. ВСПЫШКИ ПАМЯТИ — с реальными фото
+        // ================================================================
+        // ↓↓↓ СЮДА ВСТАВЛЯЙ ССЫЛКИ НА ФОТОГРАФИИ ↓↓↓
+        const memData = [
+            { image: 'https://i.imgur.com/CQcKb3Z.jpeg', label: 'Твоя улыбка' },
+            { image: 'https://i.imgur.com/LVbF1KN.jpeg', label: 'Наша поездка на дрифт' },
+            { image: 'https://i.imgur.com/VPHI9bE.jpeg', label: 'Твои лилии' },
+            { image: 'https://i.imgur.com/V5iiKUn.jpeg', label: 'Твоя новая машинка' },
+            { image: 'https://i.imgur.com/DXjMvia.jpeg', label: 'Ты - самая милая' },
+            { image: 'https://i.imgur.com/PttCJpm.jpeg', label: 'Ты с котиком' }
+        ];
+
+        let memIndex = 0;
+        let memTimer = null;
+
+        function initMemories() {
+            const container = document.getElementById('memSlidesContainer');
+            container.innerHTML = '';
+            const progress = document.getElementById('memProgress');
+            progress.innerHTML = '';
+
+            memData.forEach((item, i) => {
+                const slide = document.createElement('div');
+                slide.className = 'mem-slide' + (i === 0 ? ' active' : '');
+                slide.dataset.index = i;
+                slide.innerHTML = `
+                    <div class="mem-photo">
+                        <img src="${item.image}" alt="${item.label}" />
+                    </div>
+                    <p class="mem-caption">${item.label}</p>
+                `;
+                container.appendChild(slide);
+
+                const dot = document.createElement('div');
+                dot.className = 'dot' + (i === 0 ? ' active' : '');
+                progress.appendChild(dot);
+            });
+
+            memIndex = 0;
+            clearInterval(memTimer);
+            memTimer = setInterval(nextMemSlide, 2200);
+        }
+
+        function nextMemSlide() {
+            const slides = document.querySelectorAll('#memSlidesContainer .mem-slide');
+            const dots = document.querySelectorAll('#memProgress .dot');
+            if (memIndex >= slides.length - 1) {
+                clearInterval(memTimer);
+                setTimeout(() => goToScreen('screen-puzzle'), 800);
+                return;
+            }
+            slides[memIndex].classList.remove('active');
+            dots[memIndex].classList.remove('active');
+            memIndex++;
+            slides[memIndex].classList.add('active');
+            dots[memIndex].classList.add('active');
+        }
+
+        // ================================================================
+        //  10. ПАЗЛ
+        // ================================================================
+        const puzzleWords = ['ТЫ', 'СНОВА', 'ЗДЕСЬ', '—', 'И', 'ЭТО', 'ГЛАВНОЕ'];
+        const puzzleOrder = ['ТЫ', 'СНОВА', 'ЗДЕСЬ', '—', 'И', 'ЭТО', 'ГЛАВНОЕ'];
+        let puzzleSelected = [];
+
+        function initPuzzle() {
+            puzzleSelected = [];
+            document.getElementById('puzzleResult').textContent = '';
+            document.getElementById('puzzleNextBtn').style.display = 'none';
+            const area = document.getElementById('puzzleArea');
+            area.innerHTML = '';
+            const shuffled = [...puzzleWords].sort(() => Math.random() - 0.5);
+            shuffled.forEach(word => {
+                const el = document.createElement('span');
+                el.className = 'puzzle-word';
+                el.textContent = word;
+                el.dataset.word = word;
+                el.onclick = () => selectPuzzleWord(el);
+                area.appendChild(el);
+            });
+        }
+
+        function selectPuzzleWord(el) {
+            if (el.classList.contains('used')) return;
+            const word = el.dataset.word;
+            const expected = puzzleOrder[puzzleSelected.length];
+            if (word === expected) {
+                el.classList.add('selected');
+                setTimeout(() => {
+                    el.classList.remove('selected');
+                    el.classList.add('used');
+                }, 300);
+                puzzleSelected.push(word);
+                document.getElementById('puzzleResult').textContent = puzzleSelected.join(' ');
+                if (puzzleSelected.length === puzzleOrder.length) {
+                    document.getElementById('puzzleNextBtn').style.display = 'inline-block';
+                }
+            } else {
+                el.style.borderColor = 'rgba(255,100,100,0.3)';
+                setTimeout(() => { el.style.borderColor = ''; }, 400);
+            }
+        }
+
+        // ================================================================
+        //  11. BMW
+        // ================================================================
+        let bmwRevCount = 0;
+
+        function revBMW() {
+            const car = document.getElementById('bmwCarEmoji');
+            car.classList.remove('rev');
+            void car.offsetWidth;
+            car.classList.add('rev');
+            bmwRevCount++;
+            const fb = document.getElementById('bmwFeedback');
+            if (bmwRevCount === 1) {
+                fb.textContent = '🚀 Она завелась) Это обещание твоего будущего успеха.';
+                fb.style.color = 'rgba(255,200,220,0.7)';
+            } else if (bmwRevCount === 2) {
+                fb.textContent = '💪 Ты справишься. Я верю в тебя.';
+            } else {
+                fb.textContent = '🏁 Поехали! Город будет твоим.';
+                setTimeout(() => goToScreen('screen-butterfly'), 800);
+            }
+        }
+
+        // ================================================================
+        //  12. БАБОЧКИ
+        // ================================================================
+        let butterflyCaught = false;
+
+        function initButterflies() {
+            const swarm = document.getElementById('bfSwarm');
+            swarm.innerHTML = '';
+            for (let i = 0; i < 14; i++) {
+                const b = document.createElement('span');
+                b.className = 'bf-emoji';
+                b.textContent = '🦋';
+                b.style.left = Math.random() * 92 + '%';
+                b.style.top = Math.random() * 92 + '%';
+                b.style.animationDuration = (10 + Math.random() * 14) + 's';
+                b.style.animationDelay = (Math.random() * 10) + 's';
+                b.style.fontSize = (1.2 + Math.random() * 2) + 'rem';
+                swarm.appendChild(b);
+            }
+            document.getElementById('bfCatch').textContent = '';
+            document.getElementById('bfCatch').classList.remove('caught');
+            butterflyCaught = false;
+        }
+
+        function catchButterfly() {
+            if (butterflyCaught) return;
+            butterflyCaught = true;
+            const el = document.getElementById('bfCatch');
+            el.textContent = '🦋 Поймала! Теперь она всегда будет жить в твоей памяти — как и этот день.';
+            el.classList.add('caught');
+            setTimeout(() => goToScreen('screen-candle'), 1800);
+        }
+
+        // ================================================================
+        //  13. СВЕЧА
+        // ================================================================
+        let candleBlown = false;
+
+        function resetCandle() {
+            candleBlown = false;
+            const flame = document.getElementById('candleFlame');
+            flame.classList.remove('out');
+            flame.textContent = '🕯️';
+            document.getElementById('candleFeedback').textContent = '';
+        }
+
+        function blowCandle() {
+            if (candleBlown) return;
+            candleBlown = true;
+            const flame = document.getElementById('candleFlame');
+            flame.classList.add('out');
+            setTimeout(() => {
+                flame.textContent = '🕯️';
+            }, 400);
+            document.getElementById('candleFeedback').textContent = '✨ Твоё желание уже начало сбываться. Я сделаю всё, чтобы ты улыбалась.';
+            setTimeout(() => goToScreen('screen-final'), 1800);
+        }
+
+        // ================================================================
+        //  15. ПОДАРОК — теперь открывает screen-surprise
+        // ================================================================
+        function openGift() {
+            // вместо отображения текста просто переходим на экран с фото
+            goToScreen('screen-surprise');
+        }
+
+        // ================================================================
+        //  17. РЕСТАРТ
+        // ================================================================
+        function restart() {
+            wipeProgress = 0;
+            updateWipe(0);
+            wipeArea.classList.remove('done');
+            wipeStatus.textContent = '';
+            carFlashIndex = 0;
+            carFlashDone = false;
+            lilyOpened = [false, false, false];
+            lilyCount = 0;
+            document.getElementById('lilyMessage').textContent = '';
+            document.getElementById('lilyMessage').classList.remove('show');
+            document.getElementById('lilyNextBtn').style.display = 'none';
+            document.querySelectorAll('.lily-bud').forEach(el => el.classList.remove('opened'));
+            puzzleSelected = [];
+            bmwRevCount = 0;
+            document.getElementById('bmwFeedback').textContent = '';
+            butterflyCaught = false;
+            candleBlown = false;
+            document.getElementById('giftReveal').innerHTML = '';
+
+            const allScreens = document.querySelectorAll('.screen');
+            allScreens.forEach(s => { s.classList.remove('active', 'fade-out'); });
+            document.getElementById('screen-glass').classList.add('active');
+            currentScreen = 'screen-glass';
+            isTransitioning = false;
+            updateProgress('screen-glass');
+        }
+
+        // ================================================================
+        //  ИНИЦИАЛИЗАЦИЯ
+        // ================================================================
+        updateProgress('screen-glass');
+    </script>
+
+</body>
+</html>
